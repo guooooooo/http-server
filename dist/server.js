@@ -1,37 +1,18 @@
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.default = void 0;
-
-var _http = _interopRequireDefault(require("http"));
-
-var _fs = _interopRequireDefault(require("fs"));
-
-var _path = _interopRequireDefault(require("path"));
-
-var _util = _interopRequireDefault(require("util"));
-
-var _url = _interopRequireDefault(require("url"));
-
-var _mime = _interopRequireDefault(require("mime"));
-
-var _chalk = _interopRequireDefault(require("chalk"));
-
-var _ejs = _interopRequireDefault(require("ejs"));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
+import http from "http";
+import fs from "fs";
+import path from "path";
+import util from "util";
+import url from "url";
 const {
   stat,
   readFile,
   writeFile,
   readdir
-} = _fs.default.promises;
-
-const template = _fs.default.readFileSync(_path.default.resolve(__dirname, "../template.html"), "utf8");
-
+} = fs.promises;
+import mime from "mime";
+import chalk from "chalk";
+import ejs from "ejs";
+const template = fs.readFileSync(path.resolve(__dirname, "../template.html"), "utf8");
 console.log(template);
 
 class Server {
@@ -43,24 +24,21 @@ class Server {
   async handleRequest(req, res) {
     let {
       pathname
-    } = _url.default.parse(req.url, true); // 处理中文目录
-
+    } = url.parse(req.url, true); // 处理中文目录
 
     pathname = decodeURIComponent(pathname); // 找到当前执行命令的目录
 
-    const filepath = _path.default.join(process.cwd(), pathname);
+    const filepath = path.join(process.cwd(), pathname);
 
     try {
       const statObj = await stat(filepath);
 
       if (statObj.isDirectory()) {
         const dirs = await readdir(filepath);
-
-        const tempalte = _ejs.default.render(this.template, {
+        const tempalte = ejs.render(this.template, {
           dirs,
           path: pathname === "/" ? "" : pathname
         });
-
         res.setHeader("Content-Type", "text/html;charset=utf-8");
         res.end(tempalte);
       } else {
@@ -72,11 +50,9 @@ class Server {
   }
 
   sendFile(filepath, req, res, statObj) {
-    const fileType = _mime.default.getType(filepath);
-
+    const fileType = mime.getType(filepath);
     res.setHeader("Content-Type", `${fileType};charset=utf-8`);
-
-    _fs.default.createReadStream(filepath).pipe(res);
+    fs.createReadStream(filepath).pipe(res);
   }
 
   sendError(e, req, res) {
@@ -86,17 +62,15 @@ class Server {
   }
 
   start() {
-    let server = _http.default.createServer(this.handleRequest.bind(this));
-
+    let server = http.createServer(this.handleRequest.bind(this));
     server.listen(this.port, () => {
-      console.log(`${_chalk.default.yellow("Starting up http-server, serving")} ${_chalk.default.blueBright("./")}
+      console.log(`${chalk.yellow("Starting up http-server, serving")} ${chalk.blueBright("./")}
     Available on:
-        http://127.0.0.1:${_chalk.default.green(this.port)}
+        http://127.0.0.1:${chalk.green(this.port)}
         Hit CTRL-C to stop the server`);
     });
   }
 
 }
 
-var _default = Server;
-exports.default = _default;
+export default Server;
