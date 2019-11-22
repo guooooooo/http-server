@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import util from "util";
 import url from "url";
+import zlib from "zlib";
 const { stat, readFile, writeFile, readdir } = fs.promises;
 
 import mime from "mime";
@@ -13,7 +14,6 @@ const template = fs.readFileSync(
   path.resolve(__dirname, "../template.html"),
   "utf8"
 );
-console.log(template);
 class Server {
   constructor(config) {
     this.port = config.port;
@@ -25,11 +25,11 @@ class Server {
     // 处理中文目录
     pathname = decodeURIComponent(pathname);
     // 找到当前执行命令的目录
-    const filepath = path.join(process.cwd(), pathname);
+    const filePath = path.join(process.cwd(), pathname);
     try {
-      const statObj = await stat(filepath);
+      const statObj = await stat(filePath);
       if (statObj.isDirectory()) {
-        const dirs = await readdir(filepath);
+        const dirs = await readdir(filePath);
         const tempalte = ejs.render(this.template, {
           dirs,
           path: pathname === "/" ? "" : pathname
@@ -37,17 +37,41 @@ class Server {
         res.setHeader("Content-Type", "text/html;charset=utf-8");
         res.end(tempalte);
       } else {
-        this.sendFile(filepath, req, res, statObj);
+        this.sendFile(filePath, req, res, statObj);
       }
     } catch (e) {
       this.sendError(e, req, res);
     }
   }
 
-  sendFile(filepath, req, res, statObj) {
-    const fileType = mime.getType(filepath);
+  gzip(req, res) {
+    const encoding = req.headers["accept-encoding"];
+    if (encoding) {
+      // 生成转换流
+      if (encoding.match(/gzip/)) {
+        res.setHeader("Content-Encoding", "gzip");
+        return zlib.createGzip();
+      } else if (encoding.match(/deflate/)) {
+        res.setHeader("Content-Encoding", "deflate");
+        return zlib.createDeflate();
+      }
+      return false;
+    }
+    return false;
+  }
+
+  sendFile(filePath, req, res, statObj) {
+    const flag = this.gzip(req, res);
+
+    const fileType = mime.getType(filePath) || "text/plain";
     res.setHeader("Content-Type", `${fileType};charset=utf-8`);
-    fs.createReadStream(filepath).pipe(res);
+    if (!flag) {
+      fs.createReadStream(filePath).pipe(res);
+    } else {
+      fs.createReadStream(filePath)
+        .pipe(flag)
+        .pipe(res);
+    }
   }
 
   sendError(e, req, res) {
