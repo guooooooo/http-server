@@ -60,9 +60,27 @@ class Server {
     return false;
   }
 
-  sendFile(filePath, req, res, statObj) {
-    const flag = this.gzip(req, res);
+  cache(req, res, statObj) {
+    const lastModified = statObj.ctime.toGMTString();
+    res.setHeader("Last-Modified", lastModified);
+    const ifModifiedSince = req.headers["if-modified-since"];
+    if (ifModifiedSince) {
+      if (ifModifiedSince === lastModified) {
+        return true;
+      }
+    }
+    return false;
+  }
 
+  sendFile(filePath, req, res, statObj) {
+    res.setHeader("Cache-Control", "no-cache");
+    const cache = this.cache(req, res, statObj);
+    if (cache) {
+      res.statusCode = 304;
+      return res.end();
+    }
+
+    const flag = this.gzip(req, res);
     const fileType = mime.getType(filePath) || "text/plain";
     res.setHeader("Content-Type", `${fileType};charset=utf-8`);
     if (!flag) {
