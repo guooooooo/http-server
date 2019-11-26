@@ -1,7 +1,7 @@
 import http from "http";
 import fs from "fs";
 import path from "path";
-import util from "util";
+import crypto from "crypto";
 import url from "url";
 import zlib from "zlib";
 const { stat, readFile, writeFile, readdir } = fs.promises;
@@ -60,21 +60,29 @@ class Server {
     return false;
   }
 
-  cache(req, res, statObj) {
+  cache(filePath, req, res, statObj) {
     const lastModified = statObj.ctime.toGMTString();
     res.setHeader("Last-Modified", lastModified);
     const ifModifiedSince = req.headers["if-modified-since"];
-    if (ifModifiedSince) {
-      if (ifModifiedSince === lastModified) {
-        return true;
-      }
+
+    const ETag = crypto.createHash('md5')
+      .update(fs.readFileSync(filePath))
+      .digest('base64');
+    res.setHeader('ETag', ETag);
+    const ifNoneMatch = req.headers['if-none-match'];
+
+    if (!ifModifiedSince || ifModifiedSince !== lastModified) {
+      return false;
     }
-    return false;
+    if (!ifNoneMatch || ifNoneMatch !== ETag) {
+      return false;
+    }
+    return true;
   }
 
   sendFile(filePath, req, res, statObj) {
-    res.setHeader("Cache-Control", "no-cache");
-    const cache = this.cache(req, res, statObj);
+    res.setHeader("Cache-Control", "max-age=10");
+    const cache = this.cache(filePath, req, res, statObj);
     if (cache) {
       res.statusCode = 304;
       return res.end();

@@ -4,14 +4,14 @@
   "description": "",
   "main": "index.js",
   "bin": {
-    "serve": "./bin/www"
+    "server": "./bin/www"
   },
   "scripts": {
     "babel": "babel src -d dist",
     "babel:watch": "babel src -d dist -w"
   },
   "keywords": [],
-  "author": "",
+  "author": "glh",
   "license": "ISC",
   "devDependencies": {
     "@babel/cli": "^7.7.0",

@@ -11,7 +11,7 @@ var _fs = _interopRequireDefault(require("fs"));
 
 var _path = _interopRequireDefault(require("path"));
 
-var _util = _interopRequireDefault(require("util"));
+var _crypto = _interopRequireDefault(require("crypto"));
 
 var _url = _interopRequireDefault(require("url"));
 
@@ -90,23 +90,30 @@ class Server {
     return false;
   }
 
-  cache(req, res, statObj) {
+  cache(filePath, req, res, statObj) {
     const lastModified = statObj.ctime.toGMTString();
     res.setHeader("Last-Modified", lastModified);
     const ifModifiedSince = req.headers["if-modified-since"];
 
-    if (ifModifiedSince) {
-      if (ifModifiedSince === lastModified) {
-        return true;
-      }
+    const ETag = _crypto.default.createHash('md5').update(_fs.default.readFileSync(filePath)).digest('base64');
+
+    res.setHeader('ETag', ETag);
+    const ifNoneMatch = req.headers['if-none-match'];
+
+    if (!ifModifiedSince || ifModifiedSince !== lastModified) {
+      return false;
     }
 
-    return false;
+    if (!ifNoneMatch || ifNoneMatch !== ETag) {
+      return false;
+    }
+
+    return true;
   }
 
   sendFile(filePath, req, res, statObj) {
-    res.setHeader("Cache-Control", "no-cache");
-    const cache = this.cache(req, res, statObj);
+    res.setHeader("Cache-Control", "max-age=10");
+    const cache = this.cache(filePath, req, res, statObj);
 
     if (cache) {
       res.statusCode = 304;
